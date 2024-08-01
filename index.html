@@ -1,0 +1,210 @@
+<html><head><base href="https://www.linearregressionapp.com/"><title>Interactive Linear Regression Simulator</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.4/math.js"></script>
+<style>
+  body {
+    font-family: 'Roboto', sans-serif;
+    line-height: 1.6;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    background-color: #f0f0f0;
+  }
+  .container {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  #left-panel {
+    width: 300px;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-right: 1px solid #e0e0e0;
+  }
+  #right-panel {
+    flex-grow: 1;
+    padding: 20px;
+  }
+  h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-bottom: 30px;
+  }
+  h2 {
+    color: #34495e;
+    margin-top: 0;
+  }
+  .slider-container {
+    margin-bottom: 20px;
+  }
+  label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+  }
+  input[type="range"] {
+    width: 100%;
+    margin-top: 5px;
+  }
+  #plot {
+    width: 100%;
+    height: 500px;
+    border: 1px solid #e0e0e0;
+  }
+  #equation, #r-squared {
+    margin-top: 20px;
+    font-weight: bold;
+    text-align: center;
+  }
+  .value-display {
+    display: inline-block;
+    width: 50px;
+    text-align: right;
+    margin-left: 10px;
+  }
+  @keyframes sparkle {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+  .sparkle {
+    animation: sparkle 1.5s infinite;
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div id="left-panel">
+      <h1>Linear Regression Simulator</h1>
+      <h2>Control Panel</h2>
+      <div class="slider-container">
+        <label for="slope">Slope (a):</label>
+        <input type="range" id="slope" min="-50" max="50" value="1" step="0.1">
+        <span id="slope-value" class="value-display">1.0</span>
+      </div>
+      <div class="slider-container">
+        <label for="points">Number of points (n):</label>
+        <input type="range" id="points" min="100" max="1000" value="500" step="10">
+        <span id="points-value" class="value-display">500</span>
+      </div>
+      <div class="slider-container">
+        <label for="noise">Noise factor (c):</label>
+        <input type="range" id="noise" min="10" max="100" value="50" step="1">
+        <span id="noise-value" class="value-display">50</span>
+      </div>
+    </div>
+    <div id="right-panel">
+      <div id="plot"></div>
+      <div id="equation"></div>
+      <div id="r-squared"></div>
+    </div>
+  </div>
+
+<script>
+function generateData(slope, numPoints, noiseFactor) {
+  let x = Array.from({length: numPoints}, () => Math.random() * 9 + 1);
+  let y = x.map(xi => slope * xi + noiseFactor * math.random(-1, 1));
+  return [x, y];
+}
+
+function linearRegression(x, y) {
+  let n = x.length;
+  let sumX = x.reduce((a, b) => a + b, 0);
+  let sumY = y.reduce((a, b) => a + b, 0);
+  let sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+  let sumXX = x.reduce((sum, xi) => sum + xi * xi, 0);
+
+  let slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+  let intercept = (sumY - slope * sumX) / n;
+
+  return [slope, intercept];
+}
+
+function calculateRSquared(x, y, slope, intercept) {
+  let yMean = y.reduce((a, b) => a + b, 0) / y.length;
+  let ssRes = y.reduce((sum, yi, i) => sum + Math.pow(yi - (slope * x[i] + intercept), 2), 0);
+  let ssTot = y.reduce((sum, yi) => sum + Math.pow(yi - yMean, 2), 0);
+  return 1 - (ssRes / ssTot);
+}
+
+function updatePlot() {
+  let slope = parseFloat(document.getElementById('slope').value);
+  let numPoints = parseInt(document.getElementById('points').value);
+  let noiseFactor = parseFloat(document.getElementById('noise').value);
+
+  let [x, y] = generateData(slope, numPoints, noiseFactor);
+  let [regressionSlope, regressionIntercept] = linearRegression(x, y);
+  let rSquared = calculateRSquared(x, y, regressionSlope, regressionIntercept);
+
+  let trace1 = {
+    x: x,
+    y: y,
+    mode: 'markers',
+    type: 'scatter',
+    name: 'Data Points',
+    marker: { 
+      color: 'rgba(0,0,255,0.5)', 
+      size: 8,
+      symbol: 'star',
+      line: {
+        color: 'rgb(0,0,255)',
+        width: 1
+      }
+    }
+  };
+
+  let trace2 = {
+    x: [Math.min(...x), Math.max(...x)],
+    y: [regressionSlope * Math.min(...x) + regressionIntercept, regressionSlope * Math.max(...x) + regressionIntercept],
+    mode: 'lines',
+    type: 'scatter',
+    name: 'Regression Line',
+    line: {color: 'red', width: 2}
+  };
+
+  let layout = {
+    title: 'Sparkling Linear Regression',
+    xaxis: {title: 'X'},
+    yaxis: {title: 'Y'},
+    hovermode: 'closest',
+    font: { family: 'Roboto, sans-serif' },
+    plot_bgcolor: '#f8f8f8',
+    paper_bgcolor: '#fff'
+  };
+
+  Plotly.newPlot('plot', [trace1, trace2], layout);
+
+  // Add sparkle effect
+  let plotDiv = document.getElementById('plot');
+  let points = plotDiv.getElementsByClassName('point');
+  for (let point of points) {
+    point.classList.add('sparkle');
+    point.style.animationDelay = Math.random() + 's';
+  }
+
+  document.getElementById('equation').textContent = `Regression equation: y = ${regressionSlope.toFixed(2)}x + ${regressionIntercept.toFixed(2)}`;
+  document.getElementById('r-squared').textContent = `R-squared: ${rSquared.toFixed(4)}`;
+}
+
+document.getElementById('slope').addEventListener('input', function() {
+  document.getElementById('slope-value').textContent = parseFloat(this.value).toFixed(1);
+  updatePlot();
+});
+
+document.getElementById('points').addEventListener('input', function() {
+  document.getElementById('points-value').textContent = this.value;
+  updatePlot();
+});
+
+document.getElementById('noise').addEventListener('input', function() {
+  document.getElementById('noise-value').textContent = this.value;
+  updatePlot();
+});
+
+updatePlot();
+</script>
+</body>
+</html>
